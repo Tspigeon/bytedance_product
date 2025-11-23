@@ -1,7 +1,7 @@
 <template>
   <div class="product-details-container">
     <!-- 标题 -->
-    <h1 class="page-title">商品详情 · Desktop</h1>
+    <h1 class="page-title">商品详情</h1>
     <!-- 导航栏 -->
     <el-input
       v-model="navSearch"
@@ -18,15 +18,21 @@
                 <el-skeleton :rows="1" animated />
               </div>
               <div v-else-if="productDetail">
-                <div class="main-image">{{ images[currentThumbIndex] || '主图轮播区' }}</div>
+                <div class="main-image">
+                  <img :src="images[currentThumbIndex]" :alt="productDetail.title" v-if="images[currentThumbIndex]" />
+                  <span v-else>主图轮播区</span>
+                </div>
                 <div class="thumbnail-list">
-                  <div 
-                    v-for="(image, index) in images" 
-                    :key="index"
-                    class="thumbnail"
-                    :class="{ active: currentThumbIndex === index }"
-                    @click="currentThumbIndex = index"
-                  >{{ image }}</div>
+                    <div 
+                      v-for="(image, index) in images" 
+                      :key="index"
+                      class="thumbnail"
+                      :class="{ active: currentThumbIndex === index }"
+                      @click="currentThumbIndex = index"
+                    >
+                      <img :src="image" :alt="`缩略图${index+1}`" v-if="image" />
+                      <span v-else>缩略图{{index+1}}</span>
+                    </div>
                 </div>
               </div>
             </div>
@@ -37,9 +43,9 @@
               </div>
               <div v-else-if="productDetail">
                 <div class="product-header">
-                  <h2 class="product-title">{{ productDetail.title || '商品标题' }}</h2>
-                  <div class="product-price">价格：¥{{ productDetail.price || 0 }}</div>
-                  <div class="product-description">{{ productDetail.description || '' }}</div>
+                  <h2 class="product-title">{{ $route.query.title || 商品名 }}</h2>
+                  <div class="product-price">价格：¥{{ $route.query.price || 0 }}</div>
+                  <div class="product-description">{{ productDetail.description || 'xxxx' }}</div>
                 </div>
           <div class="spec-section">
             <!-- 尺码选择 -->
@@ -92,7 +98,10 @@
             </div>
             <div v-else class="recommended-products-grid">
               <div class="recommended-card" v-for="product in recommendedProducts" :key="product.id">
-                <div class="rec-product-image">{{ product.image }}</div>
+                <div class="rec-product-image">
+                  <img :src="product.image" :alt="product.title" v-if="product.image" />
+                  <span v-else>暂无图片</span>
+                </div>
                 <div class="rec-product-title">{{ product.title }}</div>
                 <div class="rec-product-price">¥{{ product.price }}</div>
               </div>
@@ -152,7 +161,7 @@ export default {
     // 组件创建时获取商品详情和推荐商品
     this.fetchProductDetail();
     this.fetchRecommendedProducts();
-  },
+  }, 
   
   methods: {
         // 关闭购物车抽屉
@@ -171,14 +180,14 @@ export default {
         }
         
         this.loading = true;
-        try {
-            // 获取路由参数中的商品ID
-            const productId = this.$route.params.id;
-            
-            // 如果store可用，尝试使用store获取数据
-            if (store && store.fetchProductDetail) {
+          try {
+              // 使用query参数中的商品ID
+              const productId = this.$route.query.id;
+              
+              if (store && store.fetchProductDetail) {
                 const detail = await store.fetchProductDetail(productId);
                 this.productDetail = detail;
+                // 使用props中的title覆盖详情中的title
                 this.images = detail.images || [];
                 this.sizes = detail.sizes || [];
                 this.colors = detail.colors || [];
@@ -190,6 +199,7 @@ export default {
                 
                 if (result.code === 200) {
                 this.productDetail = result.data;
+                // 使用props中的title覆盖详情中的title
                 this.images = result.data.images || [];
                 this.sizes = result.data.sizes || [];
                 this.colors = result.data.colors || [];
@@ -280,17 +290,17 @@ export default {
         } else {
             this.$message.error('库存不足');
         }
-        },
-        computed: {
-            hasStock() {
+        }
+    },
+    computed: {
+        hasStock() {
             return this.stockQuantity > 0;
-            },
-            totalPrice() {
+        },
+        totalPrice() {
             return this.cartItems.reduce((total, item) => {
                 return total + (item.price || 0) * (item.quantity || 0);
             }, 0);
-            }
-        },
+        }
     }
 }
 </script>
@@ -333,13 +343,19 @@ export default {
 
 .main-image {
   width: 100%;
-  height: 500px;
+  height: 250px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 20px;
   border: 1px solid #e0e0e0;
+}
+
+.main-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .thumbnail-list {
@@ -350,8 +366,8 @@ export default {
 }
 
 .thumbnail {
-  width: 80px;
-  height: 80px;
+  width: 40px;
+  height: 40px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
@@ -360,6 +376,12 @@ export default {
   cursor: pointer;
   transition: all 0.3s;
   flex-shrink: 0;
+}
+
+.thumbnail img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .thumbnail:hover {
@@ -505,13 +527,19 @@ export default {
 
 .rec-product-image {
   width: 100%;
-  height: 150px;
+  height: 75px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
   border-radius: 4px;
+}
+
+.rec-product-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .rec-product-title {

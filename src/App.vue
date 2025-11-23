@@ -1,15 +1,10 @@
 <template>
-  <DeskTop />
+  <router-view />
 </template>
 
 <script>
-import DeskTop from './components/Desktop.vue'
-
 export default {
-  name: 'App',
-  components: {
-    DeskTop
-  }
+  name: 'App'
 }
 </script>
 

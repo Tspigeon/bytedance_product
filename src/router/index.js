@@ -8,12 +8,11 @@ const routes = [
     name: 'DeskTop',
     component: DeskTop
   },
-  {
-    path: '/details/:id',
-    name: 'ProductDetails',
-    component: ProductDetails,
-    props: true
-  }
+  {    
+    path: '/details',
+    name: 'ProductDetails',    
+    component: ProductDetails,    
+    props: false  }
 ]
 
 const router = createRouter({

@@ -22,6 +22,8 @@
             :data="categoryData"
             :props="defaultProps"
             class="category-tree"
+            @node-click="handleCategoryClick"
+            :highlight-current="true"
           />
         </div>
         
@@ -29,19 +31,31 @@
         <div class="filter-group">
           <h4>价格区间</h4>
           <div class="price-range">
-            <el-input-number
-              v-model="minPrice"
-              placeholder="最低价"
-              :min="0"
-              class="price-input"
-            />
-            <span class="price-separator">-</span>
-            <el-input-number
-              v-model="maxPrice"
-              placeholder="最高价"
-              :min="0"
-              class="price-input"
-            />
+            <el-input
+                v-model="minPrice"
+                placeholder="最低价"
+                type="number"
+                :min="0"
+                class="price-input"
+                @change="handlePriceChange"
+              />
+              <span class="price-separator">-</span>
+              <el-input
+                v-model="maxPrice"
+                placeholder="最高价"
+                type="number"
+                :min="0"
+                class="price-input"
+                @change="handlePriceChange"
+              />
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="resetFilters"
+                class="reset-filters-btn"
+              >
+                重置筛选
+              </el-button>
           </div>
         </div>
       </div>
@@ -60,9 +74,12 @@
         
         <!-- 商品网格 -->
         <div class="product-grid">
-          <router-link :to="'/details/' + product.id" class="product-link" v-for="product in products" :key="product.id">
+          <router-link :to="{path: '/details', query: {id: product.id, title: product.title, price: product.price}}" class="product-link" v-for="product in products" :key="product.id">
             <div class="product-card">
-              <div class="product-image">{{ product.image }}</div>
+              <div class="product-image">
+                <img :src="product.image" :alt="product.title" v-if="product.image" />
+                <span v-else>暂无图片</span>
+              </div>
               <div class="product-info">
                 <div class="product-title">{{ product.title }}</div>
                 <div class="product-price">价格 ¥{{ product.price }}</div>
@@ -125,7 +142,8 @@ export default {
       internalLoading: false,
       internalTotal: 0,
       currentPage: 1,
-      pageSize: 12
+      pageSize: 12,
+      selectedCategory: null
     }
   },
   computed: {
@@ -167,16 +185,63 @@ export default {
       const store = goodsStore();
       try {
         await store.fetchProducts();
+        
+        // 获取所有商品
+        let allProducts = store.products || [];
+        
+        // 应用分类筛选
+        if (this.selectedCategory) {
+          allProducts = allProducts.filter(product => 
+            product.title === this.selectedCategory
+          );
+        }
+        
+        // 应用价格区间筛选
+        const minPriceValue = parseFloat(this.minPrice);
+        const maxPriceValue = parseFloat(this.maxPrice);
+        
+        if (!isNaN(minPriceValue) && minPriceValue >= 0) {
+          allProducts = allProducts.filter(product => 
+            product.price >= minPriceValue
+          );
+        }
+        
+        if (!isNaN(maxPriceValue) && maxPriceValue >= 0) {
+          allProducts = allProducts.filter(product => 
+            product.price <= maxPriceValue
+          );
+        }
+        
         // 更新本地状态
-      this.products = store.products;
-      this.loading = store.loading;
-      this.total = store.total;
+        this.products = allProducts;
+        this.total = allProducts.length;
+        this.loading = store.loading;
       } catch (error) {
         this.$message.error('获取商品列表失败');
       }
     },
     handleCurrentChange(val) {
-      console.log(`当前页: ${val}`)
+      this.currentPage = val;
+    },
+    
+    // 处理价格变化
+    handlePriceChange() {
+      // 确保minPrice和maxPrice在处理空字符串时设置为null
+      if (this.minPrice === '' || this.minPrice === undefined) {
+        this.minPrice = null;
+      }
+      if (this.maxPrice === '' || this.maxPrice === undefined) {
+        this.maxPrice = null;
+      }
+      this.filterProductsByCategory();
+    },
+    
+    // 重置所有筛选条件
+    resetFilters() {
+      this.selectedCategory = null;
+      this.minPrice = null;
+      this.maxPrice = null;
+      this.filterProductsByCategory();
     },
     getTagType(tag) {
       switch(tag) {
@@ -185,6 +250,27 @@ export default {
         case '折扣': return 'warning'
         default: return 'info'
       }
+    },
+    
+    // 处理分类点击事件
+    handleCategoryClick(data) {
+      this.selectedCategory = data.label;
+      this.filterProductsByCategory();
+    },
+    
+    // 根据分类筛选商品
+    filterProductsByCategory() {
+      // 重置页码到第一页
+      this.currentPage = 1;
+      
+      // 重新从store获取商品并应用筛选
+      this.getProductsFromStore();
+    },
+    
+    // 重置分类筛选
+    resetCategoryFilter() {
+      this.selectedCategory = null;
+      this.filterProductsByCategory();
     }
   }
 }
@@ -245,6 +331,10 @@ export default {
   width: 80px;
 }
 
+.reset-filters-btn {
+  margin-top: 10px;
+}
+
 .price-separator {
   font-size: 16px;
 }
@@ -296,6 +386,12 @@ export default {
   justify-content: center;
   margin-bottom: 12px;
   color: #999;
+}
+
+.product-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .product-title {
