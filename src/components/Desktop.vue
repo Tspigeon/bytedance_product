@@ -6,8 +6,11 @@
     <!-- 导航栏 -->
     <el-input
       v-model="navSearch"
-      placeholder="导航栏"
+      placeholder="搜索商品..."
       class="nav-input"
+      @input="handleSearch"
+      clearable
+      prefix-icon="el-icon-search"
     />
     
     <div class="main-content">
@@ -37,7 +40,7 @@
                 type="number"
                 :min="0"
                 class="price-input"
-                @change="handlePriceChange"
+                @change="handlePriceChangeThrottled"
               />
               <span class="price-separator">-</span>
               <el-input
@@ -46,7 +49,7 @@
                 type="number"
                 :min="0"
                 class="price-input"
-                @change="handlePriceChange"
+                @change="handlePriceChangeThrottled"
               />
               <el-button 
                 type="text" 
@@ -112,7 +115,7 @@
             @current-change="handleCurrentChange"
             :loading="loading"
           />
-          <span class="page-size-info">每页数量: 12</span>
+          <span class="page-size-info">每页数量: {{ pageSize }}</span>
         </div>
       </div>
     </div>
@@ -120,6 +123,8 @@
 </template>
 
 <script>
+import { debounce, throttle } from '../utils/debounceThrottle';
+
 export default {
   name: 'DeskTop',
   data() {
@@ -142,8 +147,10 @@ export default {
       internalLoading: false,
       internalTotal: 0,
       currentPage: 1,
-      pageSize: 12,
-      selectedCategory: null
+      pageSize: 6,
+      selectedCategory: null,
+      // 搜索相关状态
+      searchKeyword: ''
     }
   },
   computed: {
@@ -173,12 +180,24 @@ export default {
       }
     }
   },
+  watch: {
+    // 监听排序变化，重新获取数据
+    sortBy() {
+      this.getProductsFromStore();
+    }
+  },
   created() {
     // 组件创建时从store获取商品列表
     this.getProductsFromStore();
   },
   methods: {
-    // 从store获取商品列表
+        // 防抖搜索处理
+        handleSearch: debounce(function() {
+          this.searchKeyword = this.navSearch;
+          this.filterProductsByCategory();
+        }, 500),
+        
+        // 从store获取商品列表
     async getProductsFromStore() {
       // 在方法内部导入store，确保Pinia已初始化
       const { goodsStore } = await import('../store');
@@ -192,7 +211,8 @@ export default {
         // 应用分类筛选
         if (this.selectedCategory) {
           allProducts = allProducts.filter(product => 
-            product.title === this.selectedCategory
+            product.category === this.selectedCategory || 
+            product.title.toLowerCase().includes(this.selectedCategory.toLowerCase())
           );
         }
         
@@ -212,9 +232,30 @@ export default {
           );
         }
         
-        // 更新本地状态
-        this.products = allProducts;
+        // 应用搜索关键词筛选
+        if (this.searchKeyword) {
+          allProducts = allProducts.filter(product => 
+            product.title && product.title.toLowerCase().includes(this.searchKeyword.toLowerCase())
+          );
+        }
+        
+        // 应用排序
+        if (this.sortBy === 'price_asc') {
+          allProducts.sort((a, b) => a.price - b.price);
+        } else if (this.sortBy === 'price_desc') {
+          allProducts.sort((a, b) => b.price - a.price);
+        } else if (this.sortBy === 'sales') {
+          allProducts.sort((a, b) => b.sales - a.sales);
+        }
+        
+        // 计算总数量
         this.total = allProducts.length;
+        
+        // 应用分页逻辑
+        const startIndex = (this.currentPage - 1) * this.pageSize;
+        const endIndex = startIndex + this.pageSize;
+        this.products = allProducts.slice(startIndex, endIndex);
+        
         this.loading = store.loading;
       } catch (error) {
         this.$message.error('获取商品列表失败');
@@ -222,6 +263,8 @@ export default {
     },
     handleCurrentChange(val) {
       this.currentPage = val;
+      // 页码改变时重新获取对应页的数据
+      this.getProductsFromStore();
     },
     
     // 处理价格变化
@@ -235,6 +278,11 @@ export default {
       }
       this.filterProductsByCategory();
     },
+    
+    // 节流处理价格变化，避免频繁触发筛选
+    handlePriceChangeThrottled: throttle(function() {
+      this.handlePriceChange();
+    }, 300),
     
     // 重置所有筛选条件
     resetFilters() {

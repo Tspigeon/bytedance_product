@@ -5,8 +5,11 @@
     <!-- 导航栏 -->
     <el-input
       v-model="navSearch"
-      placeholder="导航栏"
+      placeholder="搜索商品..."
       class="nav-input"
+      @input="handleSearch"
+      clearable
+      prefix-icon="el-icon-search"
     />
     
     <div class="main-content">
@@ -28,7 +31,7 @@
                       :key="index"
                       class="thumbnail"
                       :class="{ active: currentThumbIndex === index }"
-                      @click="currentThumbIndex = index"
+                      @click="handleThumbClick(index)"
                     >
                       <img :src="image" :alt="`缩略图${index+1}`" v-if="image" />
                       <span v-else>缩略图{{index+1}}</span>
@@ -137,11 +140,14 @@
 </template>
 
 <script>
+import { debounce, throttle } from '../utils/debounceThrottle';
+
 export default {
   name: 'ProductDetails',
   data() {
     return {
       navSearch: '',
+      searchKeyword: '',
       currentThumbIndex: 0,
       productDetail: null,
       images: [],
@@ -164,6 +170,23 @@ export default {
   }, 
   
   methods: {
+        // 防抖搜索处理
+        handleSearch: debounce(function() {
+          this.searchKeyword = this.navSearch;
+          // 如果有搜索关键词，跳转到搜索结果页
+          if (this.searchKeyword.trim()) {
+            this.$router.push({
+              path: '/',
+              query: { search: this.searchKeyword }
+            });
+          }
+        }, 500),
+        
+        // 处理缩略图点击，使用节流避免频繁切换
+        handleThumbClick: throttle(function(index) {
+          this.currentThumbIndex = index;
+        }, 100),
+        
         // 关闭购物车抽屉
         setCartDrawerVisible(value) {
         this.cartDrawerVisible = value;
